@@ -1,8 +1,6 @@
 #include "malloc.h"
 
 void *kima_malloc(size_t size) {
-	bool retried = false;
-retry_alloc:;
 	void *filter_base = NULL;
 
 	kima_rbtree_foreach(i, &kima_vpgdesc_query_tree) {
@@ -59,8 +57,6 @@ retry_alloc:;
 	noncontinuous:;
 	}
 
-	assert(!retried);
-
 	void *new_free_pg = kima_vpgalloc(NULL, KIMA_PGCEIL(size));
 
 	assert(new_free_pg);
@@ -71,9 +67,10 @@ retry_alloc:;
 		assert(vpgdesc);
 	}
 
-	retried = true;
+	kima_ublk_t *ublk = kima_alloc_ublk(new_free_pg, size);
+	assert(ublk);
 
-	goto retry_alloc;
+	return new_free_pg;
 }
 
 void kima_free(void *ptr) {
