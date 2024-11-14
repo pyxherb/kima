@@ -86,6 +86,23 @@ kima_rbtree_node_t **kima_rbtree_find_slot(kima_rbtree_t *tree, kima_rbtree_node
 	return i;
 }
 
+kima_rbtree_node_t *kima_rbtree_find_max_node(kima_rbtree_t *tree, kima_rbtree_node_t *node) {
+	kima_rbtree_node_t *cur_node = tree->root, *max_node = NULL;
+
+	while (cur_node) {
+		// cur_node < n
+		if (tree->node_cmp(cur_node, node)) {
+			max_node = cur_node;
+			cur_node = cur_node->r;
+		} else if(tree->node_cmp(node, cur_node)) {
+			cur_node = cur_node->l;
+		} else
+			return cur_node;
+	}
+
+	return max_node;
+}
+
 void kima_rbtree_free(kima_rbtree_t *tree) {
 	if (tree->root)
 		kima_rbtree_walk_nodes_for_freeing(tree, tree->root);

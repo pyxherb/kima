@@ -21,7 +21,7 @@ kima_ublk_t *kima_lookup_ublk(void *ptr) {
 		.ptr = ptr
 	};
 
-	kima_rbtree_node_t *node = kima_rbtree_find(&kima_ublk_query_tree, &query_desc);
+	kima_rbtree_node_t *node = kima_rbtree_find(&kima_ublk_query_tree, &query_desc.node_header);
 
 	if (!node)
 		return NULL;
@@ -34,11 +34,12 @@ kima_ublk_t *kima_lookup_nearest_ublk(void *ptr) {
 		.ptr = ptr
 	};
 
-	kima_rbtree_node_t *p;
+	kima_rbtree_node_t *node = kima_rbtree_find_max_node(&kima_ublk_query_tree, &query_desc.node_header);
 
-	kima_rbtree_node_t **slot = kima_rbtree_find_slot(&kima_ublk_query_tree, &query_desc, &p);
+	if (!node)
+		return NULL;
 
-	return KIMA_CONTAINER_OF(kima_ublk_t, node_header, p);
+	return KIMA_CONTAINER_OF(kima_ublk_t, node_header, node);
 }
 
 void kima_free_ublk(kima_ublk_t *ublk) {

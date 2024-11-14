@@ -21,7 +21,7 @@ kima_vpgdesc_t* kima_lookup_vpgdesc(void* ptr) {
 		.ptr = ptr
 	};
 
-	kima_rbtree_node_t *node = kima_rbtree_find(&kima_vpgdesc_query_tree, &query_desc);
+	kima_rbtree_node_t *node = kima_rbtree_find(&kima_vpgdesc_query_tree, &query_desc.node_header);
 
 	if (!node)
 		return NULL;

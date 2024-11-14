@@ -38,6 +38,8 @@ bool kima_rbtree_insert(kima_rbtree_t *tree, kima_rbtree_node_t *node);
 void kima_rbtree_remove(kima_rbtree_t *tree, kima_rbtree_node_t *node);
 kima_rbtree_node_t *kima_rbtree_find(kima_rbtree_t *tree, kima_rbtree_node_t *node);
 kima_rbtree_node_t **kima_rbtree_find_slot(kima_rbtree_t *tree, kima_rbtree_node_t *node, kima_rbtree_node_t **p_out);
+kima_rbtree_node_t *kima_rbtree_find_max_node(kima_rbtree_t *tree, kima_rbtree_node_t *node);
+kima_rbtree_node_t *kima_rbtree_find_max_node(kima_rbtree_t *tree, kima_rbtree_node_t *node);
 void kima_rbtree_free(kima_rbtree_t *tree);
 
 #define kima_rbtree_clear(tree) kima_rbtree_free(tree)
@@ -48,7 +50,7 @@ void kima_rbtree_init(kima_rbtree_t *dest,
 
 #define kima_rbtree_begin(tree) ((tree)->root ? kima_rbtree_minnode((tree)->root) : NULL)
 #define kima_rbtree_end(tree) ((tree)->root ? kima_rbtree_maxnode((tree)->root) : NULL)
-kima_rbtree_node_t* kima_rbtree_next(kima_rbtree_node_t* node);
+kima_rbtree_node_t *kima_rbtree_next(kima_rbtree_node_t *node);
 
 #define kima_rbtree_foreach(i, tree) for (kima_rbtree_node_t *i = kima_rbtree_begin(tree); i; i = kima_rbtree_next(i))
 
