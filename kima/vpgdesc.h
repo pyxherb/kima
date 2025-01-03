@@ -31,6 +31,7 @@ void kima_vpgdesc_nodefree(kima_rbtree_node_t *p);
 
 kima_vpgdesc_t *kima_lookup_vpgdesc(void *ptr);
 kima_vpgdesc_t *kima_alloc_vpgdesc(void *ptr);
+kima_vpgdesc_t *kima_lookup_nearest_vpgdesc(void *ptr);
 void kima_free_vpgdesc(kima_vpgdesc_t *vpgdesc);
 
 #endif

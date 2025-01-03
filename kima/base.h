@@ -16,7 +16,7 @@
 #define PGROUNDUP(addr) \
 	(((uintptr_t)(addr) >> 12) + ((((uintptr_t)(addr)) & KIMA_PGOFF_MAX) ? 1 : 0))
 /// @brief Round down a linear address into a paged address
-#define PGROUNDDOWN(addr) ((((pgaddr_t)(addr))) >> 12)
+#define PGROUNDDOWN(addr) ((((uintptr_t)(addr))) >> 12)
 /// @brief Round up a linear address into page-aligned.
 #define KIMA_PGCEIL(addr) (((((size_t)(addr)) + KIMA_PGOFF_MAX) & (~KIMA_PGOFF_MAX)))
 /// @brief Round down a linear address into page-aligned.

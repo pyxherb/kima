@@ -1,6 +1,6 @@
 #include "malloc.h"
 
-void *kima_malloc(size_t size) {
+void *kima_malloc(size_t size, kima_malloc_flags_t flags) {
 	void *filter_base = NULL;
 
 	kima_rbtree_foreach(i, &kima_vpgdesc_query_tree) {
@@ -9,12 +9,21 @@ void *kima_malloc(size_t size) {
 		if (cur_desc->ptr < filter_base)
 			continue;
 
-		for (size_t j = 0;
-			 j < KIMA_PGCEIL(size);
-			 j += KIMA_PAGESIZE) {
-			if (!kima_lookup_vpgdesc(((char *)cur_desc->ptr) + j)) {
-				filter_base = ((char *)cur_desc->ptr) + j;
+		kima_vpgdesc_t *max_desc = kima_lookup_nearest_vpgdesc(((char*)cur_desc->ptr) + (KIMA_PGCEIL(size) - KIMA_PAGESIZE));
+
+		if (max_desc) {
+			if (max_desc->ptr < KIMA_PGCEIL(size) - KIMA_PAGESIZE) {
 				goto noncontinuous;
+			}
+
+			// Verify if the area is continuously allocated.
+			for (size_t j = 0;
+				 j < KIMA_PGCEIL(size);
+				 j += KIMA_PAGESIZE) {
+				if (!kima_lookup_vpgdesc(((char *)cur_desc->ptr) + j)) {
+					filter_base = ((char *)cur_desc->ptr) + j;
+					goto noncontinuous;
+				}
 			}
 		}
 
@@ -57,6 +66,8 @@ void *kima_malloc(size_t size) {
 	noncontinuous:;
 	}
 
+	assert(!(flags & _KIMA_MALLOC_REALLOC));
+
 	void *new_free_pg = kima_vpgalloc(NULL, KIMA_PGCEIL(size));
 
 	assert(new_free_pg);
@@ -65,6 +76,16 @@ void *kima_malloc(size_t size) {
 		kima_vpgdesc_t *vpgdesc = kima_alloc_vpgdesc(((char *)new_free_pg) + i * KIMA_PAGESIZE);
 
 		assert(vpgdesc);
+	}
+
+	void *free_base = kima_malloc(size, _KIMA_MALLOC_REALLOC);
+
+	assert(((char*)free_base) < (((char*)new_free_pg) + KIMA_PGCEIL(size)));
+
+	for (size_t i = PGROUNDDOWN(free_base) + PGROUNDUP(size); i < PGROUNDDOWN(new_free_pg) + PGROUNDUP(size); ++i) {
+		kima_vpgdesc_t *vpgdesc = kima_lookup_vpgdesc(PGROUNDDOWN(i));
+		assert(vpgdesc);
+		kima_free_vpgdesc(vpgdesc);
 	}
 
 	kima_ublk_t *ublk = kima_alloc_ublk(new_free_pg, size);

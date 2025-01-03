@@ -3,20 +3,33 @@
 kima_vpgdesc_poolpg_t *kima_vpgdesc_poolpg_list = NULL;
 kima_rbtree_t kima_vpgdesc_query_tree;
 
-bool kima_vpgdesc_nodecmp(const kima_rbtree_node_t* x, const kima_rbtree_node_t* y) {
+bool kima_vpgdesc_nodecmp(const kima_rbtree_node_t *x, const kima_rbtree_node_t *y) {
 	kima_vpgdesc_t *_x = KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, x),
 				   *_y = KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, y);
 
 	return _x->ptr < _y->ptr;
 }
 
-void kima_vpgdesc_nodefree(kima_rbtree_node_t* p) {
+void kima_vpgdesc_nodefree(kima_rbtree_node_t *p) {
 	kima_vpgdesc_t *_p = KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, p);
 
 	_p->ptr = NULL;
 }
 
-kima_vpgdesc_t* kima_lookup_vpgdesc(void* ptr) {
+kima_vpgdesc_t *kima_lookup_nearest_vpgdesc(void *ptr) {
+	kima_vpgdesc_t query_desc = {
+		.ptr = ptr
+	};
+
+	kima_rbtree_node_t *node = kima_rbtree_find_max_node(&kima_vpgdesc_query_tree, &query_desc.node_header);
+
+	if (!node)
+		return NULL;
+
+	return KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, node);
+}
+
+kima_vpgdesc_t *kima_lookup_vpgdesc(void *ptr) {
 	kima_vpgdesc_t query_desc = {
 		.ptr = ptr
 	};
@@ -29,7 +42,7 @@ kima_vpgdesc_t* kima_lookup_vpgdesc(void* ptr) {
 	return KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, node);
 }
 
-void kima_free_vpgdesc(kima_vpgdesc_t* vpgdesc) {
+void kima_free_vpgdesc(kima_vpgdesc_t *vpgdesc) {
 	kima_vpgdesc_poolpg_t *poolpg = KIMA_PGFLOOR(vpgdesc);
 
 	kima_rbtree_remove(&kima_vpgdesc_query_tree, &vpgdesc->node_header);
@@ -43,10 +56,10 @@ void kima_free_vpgdesc(kima_vpgdesc_t* vpgdesc) {
 	}
 }
 
-kima_vpgdesc_t* kima_alloc_vpgdesc(void* ptr) {
-	for (kima_vpgdesc_poolpg_t* pg = kima_vpgdesc_poolpg_list;
-		pg;
-		pg = pg->header.next) {
+kima_vpgdesc_t *kima_alloc_vpgdesc(void *ptr) {
+	for (kima_vpgdesc_poolpg_t *pg = kima_vpgdesc_poolpg_list;
+		 pg;
+		 pg = pg->header.next) {
 		if (pg->header.used_num >= KIMA_ARRAYLEN(pg->slots)) {
 			continue;
 		}
