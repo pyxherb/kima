@@ -1,15 +1,25 @@
 #include "malloc.h"
 
-void *kima_malloc(size_t size, kima_malloc_flags_t flags) {
+void *kima_malloc(size_t size, kima_malloc_exargs_t *exargs) {
 	void *filter_base = NULL;
 
+	kima_vpgdesc_t *cur_desc = NULL;
+
+	if (exargs && (exargs->flags & _KIMA_MALLOC_REALLOC)) {
+		cur_desc = kima_lookup_nearest_vpgdesc(exargs->exdata.forward_alloc_base);
+
+		assert(cur_desc);
+
+		goto found_continuous;
+	}
+
 	kima_rbtree_foreach(i, &kima_vpgdesc_query_tree) {
-		kima_vpgdesc_t *cur_desc = KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, i);
+		cur_desc = KIMA_CONTAINER_OF(kima_vpgdesc_t, node_header, i);
 
 		if (cur_desc->ptr < filter_base)
 			continue;
 
-		kima_vpgdesc_t *max_desc = kima_lookup_nearest_vpgdesc(((char*)cur_desc->ptr) + (KIMA_PGCEIL(size) - KIMA_PAGESIZE));
+		kima_vpgdesc_t *max_desc = kima_lookup_nearest_vpgdesc(((char *)cur_desc->ptr) + (KIMA_PGCEIL(size) - KIMA_PAGESIZE));
 
 		if (max_desc) {
 			if (max_desc->ptr < KIMA_PGCEIL(size) - KIMA_PAGESIZE) {
@@ -27,46 +37,52 @@ void *kima_malloc(size_t size, kima_malloc_flags_t flags) {
 			}
 		}
 
-		{
-			void *const limit = ((char *)cur_desc->ptr) + (KIMA_PGCEIL(size) - size);
+	found_continuous: {
+		void *const limit = ((char *)cur_desc->ptr) + (KIMA_PGCEIL(size) - size);
 
-			for (void *cur_base = cur_desc->ptr;
-				 cur_base <= limit;) {
-				kima_ublk_t *nearest_ublk;
-				if ((nearest_ublk = kima_lookup_nearest_ublk(cur_base))) {
-					if (KIMA_ISOVERLAPPED((char *)cur_base, size, (char *)nearest_ublk->ptr, nearest_ublk->size)) {
-						cur_base = ((char *)nearest_ublk->ptr) + nearest_ublk->size;
-						continue;
-					}
+		for (void *cur_base = cur_desc->ptr;
+			 cur_base <= limit;) {
+			kima_ublk_t *nearest_ublk;
+			if ((nearest_ublk = kima_lookup_nearest_ublk(cur_base))) {
+				if (KIMA_ISOVERLAPPED((char *)cur_base, size, (char *)nearest_ublk->ptr, nearest_ublk->size)) {
+					cur_base = ((char *)nearest_ublk->ptr) + nearest_ublk->size;
+					continue;
 				}
-				if ((nearest_ublk = kima_lookup_nearest_ublk(((char *)cur_base) + size - 1))) {
-					if (KIMA_ISOVERLAPPED((char *)cur_base, size, (char *)nearest_ublk->ptr, nearest_ublk->size)) {
-						cur_base = ((char *)nearest_ublk->ptr) + nearest_ublk->size;
-						continue;
-					}
-				}
-
-				kima_ublk_t *ublk = kima_alloc_ublk(cur_base, size);
-				assert(ublk);
-
-				for (size_t j = 0;
-					 j < KIMA_PGCEIL(size);
-					 j += KIMA_PAGESIZE) {
-					kima_vpgdesc_t *vpgdesc = kima_lookup_vpgdesc(((char *)cur_desc->ptr) + j);
-
-					assert(vpgdesc);
-
-					++vpgdesc->ref_count;
-				}
-
-				return cur_base;
 			}
+			if ((nearest_ublk = kima_lookup_nearest_ublk(((char *)cur_base) + size - 1))) {
+				if (KIMA_ISOVERLAPPED((char *)cur_base, size, (char *)nearest_ublk->ptr, nearest_ublk->size)) {
+					cur_base = ((char *)nearest_ublk->ptr) + nearest_ublk->size;
+					continue;
+				}
+			}
+
+			kima_ublk_t *ublk = kima_alloc_ublk(cur_base, size);
+			assert(ublk);
+
+			for (size_t j = 0;
+				 j < KIMA_PGCEIL(size);
+				 j += KIMA_PAGESIZE) {
+				kima_vpgdesc_t *vpgdesc = kima_lookup_vpgdesc(((char *)cur_desc->ptr) + j);
+
+				assert(vpgdesc);
+
+				++vpgdesc->ref_count;
+			}
+
+			return cur_base;
+		}
+	}
+
+		if (exargs && (exargs->flags & _KIMA_MALLOC_REALLOC)) {
+			assert(false);
 		}
 
 	noncontinuous:;
 	}
 
-	assert(!(flags & _KIMA_MALLOC_REALLOC));
+	if (exargs) {
+		assert(!(exargs->flags & _KIMA_MALLOC_REALLOC));
+	}
 
 	void *new_free_pg = kima_vpgalloc(NULL, KIMA_PGCEIL(size));
 
@@ -78,9 +94,13 @@ void *kima_malloc(size_t size, kima_malloc_flags_t flags) {
 		assert(vpgdesc);
 	}
 
-	void *free_base = kima_malloc(size, _KIMA_MALLOC_REALLOC);
+	kima_malloc_exargs_t recurse_exargs;
+	memset(&recurse_exargs, 0, sizeof(recurse_exargs));
+	recurse_exargs.flags |= _KIMA_MALLOC_REALLOC;
+	recurse_exargs.exdata.forward_alloc_base = new_free_pg;
+	void *free_base = kima_malloc(size, &recurse_exargs);
 
-	assert(((char*)free_base) < (((char*)new_free_pg) + KIMA_PGCEIL(size)));
+	assert(((char *)free_base) < (((char *)new_free_pg) + KIMA_PGCEIL(size)));
 
 	for (size_t i = PGROUNDDOWN(free_base) + PGROUNDUP(size); i < PGROUNDDOWN(new_free_pg) + PGROUNDUP(size); ++i) {
 		kima_vpgdesc_t *vpgdesc = kima_lookup_vpgdesc(PGROUNDDOWN(i));
